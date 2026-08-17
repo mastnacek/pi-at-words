@@ -96,6 +96,9 @@ let builtVersion = -1;
 /** Eldritch pink: bold + truecolor #ff5fd7. Terminals can't glow; this is the rite. */
 const PINK = "\x1b[1m\x1b[38;2;255;95;215m";
 const PINK_OFF = "\x1b[22m\x1b[39m";
+/** Signal green for @-mentions: bold + truecolor #00ff66. */
+const GREEN = "\x1b[1m\x1b[38;2;0;255;102m";
+const GREEN_OFF = "\x1b[22m\x1b[39m";
 
 /** Entry used to persist recorded words across restarts (display-only). */
 const WORDS_ENTRY_TYPE = "at-words:words";
@@ -112,14 +115,14 @@ function buildHighlightRe(): RegExp {
 	return highlightRe;
 }
 
-/** @-mention paths (`@src/foo.ts`, `@"quoted path"`) — pinked wherever they render. */
+/** @-mention paths (`@src/foo.ts`, `@"quoted path"`) — greened wherever they render. */
 const MENTION_SRC = String.raw`@"[^"\n]+"|@[\w][\w./-]*`;
 
-/** Style recorded words + @-mentions in any plain text (markdown, transcript, widgets). */
+/** Style recorded words (pink) + @-mentions (green) in any plain text. */
 export function styleText(text: string): string {
 	if (highlightWords.size === 0 && !text.includes("@")) return text;
 	// Single combined pass: a word match inside a styled path can never corrupt
-	// the mention's color span (no nesting).
+	// the mention's color span (no nesting). Mentions start with @, words never do.
 	const wordAlts = [...highlightWords]
 		.sort((a, b) => b.length - a.length)
 		.join("|");
@@ -127,7 +130,10 @@ export function styleText(text: string): string {
 		? `|(?<![A-Za-z0-9_])(?:${wordAlts})(?![A-Za-z0-9_])`
 		: "";
 	const re = new RegExp(`(?:${MENTION_SRC})${wordPart}`, "g");
-	return text.replace(re, (m) => `${PINK}${m}${PINK_OFF}`);
+	return text.replace(
+		re,
+		(m) => (m.startsWith("@") ? `${GREEN}${m}${GREEN_OFF}` : `${PINK}${m}${PINK_OFF}`),
+	);
 }
 
 function recordHighlight(pi: ExtensionAPI, word: string): void {
