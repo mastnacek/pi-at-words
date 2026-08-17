@@ -1,0 +1,25 @@
+{
+	"name": "pi-at-words",
+	"version": "0.1.0",
+	"description": "Word/symbol autocomplete from @-attached files in the pi coding agent input editor, with pink highlighting of confirmed words.",
+	"license": "MIT",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"pi-coding-agent",
+		"pi-extension",
+		"autocomplete"
+	],
+	"files": [
+		"src",
+		"README.md",
+		"LICENSE"
+	],
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	},
+	"pi": {
+		"extensions": ["./src/index.ts"]
+	}
+}
