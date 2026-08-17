@@ -208,6 +208,10 @@ export default function (pi: ExtensionAPI): void {
 				}
 			}
 		}
+		// Broadcast restored set so dependent extensions (e.g. translate) style too.
+		if (highlightWords.size > 0) {
+			pi.events.emit("at-words:words-updated", { words: [...highlightWords] });
+		}
 
 		ctx.ui.addAutocompleteProvider(
 			(current: AutocompleteProvider): AutocompleteProvider => ({
