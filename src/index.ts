@@ -113,16 +113,21 @@ function buildHighlightRe(): RegExp {
 }
 
 /** @-mention paths (`@src/foo.ts`, `@"quoted path"`) — pinked wherever they render. */
-const MENTION_RE = /@"[^"\n]+"|@[\w][\w.\/-]*/g;
+const MENTION_SRC = String.raw`@"[^"\n]+"|@[\w][\w./-]*`;
 
 /** Style recorded words + @-mentions in any plain text (markdown, transcript, widgets). */
 export function styleText(text: string): string {
 	if (highlightWords.size === 0 && !text.includes("@")) return text;
-	let out = text.replace(MENTION_RE, (m) => `${PINK}${m}${PINK_OFF}`);
-	if (highlightWords.size > 0) {
-		out = out.replace(buildHighlightRe(), (m) => `${PINK}${m}${PINK_OFF}`);
-	}
-	return out;
+	// Single combined pass: a word match inside a styled path can never corrupt
+	// the mention's color span (no nesting).
+	const wordAlts = [...highlightWords]
+		.sort((a, b) => b.length - a.length)
+		.join("|");
+	const wordPart = highlightWords.size
+		? `|(?<![A-Za-z0-9_])(?:${wordAlts})(?![A-Za-z0-9_])`
+		: "";
+	const re = new RegExp(`(?:${MENTION_SRC})${wordPart}`, "g");
+	return text.replace(re, (m) => `${PINK}${m}${PINK_OFF}`);
 }
 
 function recordHighlight(pi: ExtensionAPI, word: string): void {
