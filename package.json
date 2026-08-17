@@ -1,6 +1,6 @@
 {
 	"name": "pi-at-words",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Word/symbol autocomplete from @-attached files in the pi coding agent input editor, with pink highlighting of confirmed words.",
 	"license": "MIT",
 	"keywords": [

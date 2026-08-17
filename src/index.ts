@@ -97,19 +97,10 @@ let builtVersion = -1;
 const PINK = "\x1b[1m\x1b[38;2;255;95;215m";
 const PINK_OFF = "\x1b[22m\x1b[39m";
 
-function recordHighlight(word: string): void {
-	if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(word)) return;
-	if (highlightWords.has(word)) return;
-	highlightWords.add(word);
-	if (highlightWords.size > MAX_HIGHLIGHT_WORDS) {
-		const first = highlightWords.values().next().value;
-		if (first !== undefined) highlightWords.delete(first);
-	}
-	highlightVersion++;
-}
+/** Entry used to persist recorded words across restarts (display-only). */
+const WORDS_ENTRY_TYPE = "at-words:words";
 
-function highlightRenderedLines(lines: string[]): string[] {
-	if (highlightWords.size === 0) return lines;
+function buildHighlightRe(): RegExp {
 	if (highlightRe === null || builtVersion !== highlightVersion) {
 		// Longest first so overlapping identifiers style as one unit.
 		const alts = [...highlightWords]
@@ -118,7 +109,39 @@ function highlightRenderedLines(lines: string[]): string[] {
 		highlightRe = new RegExp(`(?<![A-Za-z0-9_])(?:${alts})(?![A-Za-z0-9_])`, "g");
 		builtVersion = highlightVersion;
 	}
-	const re = highlightRe;
+	return highlightRe;
+}
+
+/** @-mention paths (`@src/foo.ts`, `@"quoted path"`) — pinked wherever they render. */
+const MENTION_RE = /@"[^"\n]+"|@[\w][\w.\/-]*/g;
+
+/** Style recorded words + @-mentions in any plain text (markdown, transcript, widgets). */
+export function styleText(text: string): string {
+	if (highlightWords.size === 0 && !text.includes("@")) return text;
+	let out = text.replace(MENTION_RE, (m) => `${PINK}${m}${PINK_OFF}`);
+	if (highlightWords.size > 0) {
+		out = out.replace(buildHighlightRe(), (m) => `${PINK}${m}${PINK_OFF}`);
+	}
+	return out;
+}
+
+function recordHighlight(pi: ExtensionAPI, word: string): void {
+	if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(word)) return;
+	if (highlightWords.has(word)) return;
+	highlightWords.add(word);
+	if (highlightWords.size > MAX_HIGHLIGHT_WORDS) {
+		const first = highlightWords.values().next().value;
+		if (first !== undefined) highlightWords.delete(first);
+	}
+	highlightVersion++;
+	// Persist for restarts and broadcast for other extensions (e.g. translate plugins).
+	pi.appendEntry(WORDS_ENTRY_TYPE, { words: [...highlightWords] });
+	pi.events.emit("at-words:words-updated", { words: [...highlightWords] });
+}
+
+function highlightRenderedLines(lines: string[]): string[] {
+	if (highlightWords.size === 0) return lines;
+	const re = buildHighlightRe();
 	return lines.map((line) => {
 		// Skip borders / scroll indicators (─ runs) and letter-less lines.
 		if (line.includes("─") || !/[A-Za-z]/.test(line)) return line;
@@ -163,7 +186,29 @@ export default function (pi: ExtensionAPI): void {
 		if (text !== event.text) return { action: "transform", text };
 	});
 
+	// Pink recorded words + @-mentions in transcript user messages (translated
+	// messages included). Markdown transformers run for user text and restored
+	// sessions, so highlights survive restarts once words are restored below.
+	pi.registerMarkdownTransformer((markdown, { messageType, isStreaming }) => {
+		if (isStreaming || messageType !== "user") return markdown;
+		return styleText(markdown);
+	});
+
 	pi.on("session_start", (_event, ctx) => {
+		// Restore persisted words (last entry wins) so highlights survive restarts.
+		for (const entry of ctx.sessionManager.getEntries()) {
+			if (entry.type === "custom" && entry.customType === WORDS_ENTRY_TYPE) {
+				const data = entry.data as { words?: string[] } | undefined;
+				if (Array.isArray(data?.words)) {
+					highlightWords.clear();
+					for (const w of data.words.slice(-MAX_HIGHLIGHT_WORDS)) {
+						if (typeof w === "string") highlightWords.add(w);
+					}
+					highlightVersion++;
+				}
+			}
+		}
+
 		ctx.ui.addAutocompleteProvider(
 			(current: AutocompleteProvider): AutocompleteProvider => ({
 				triggerCharacters: ["?"],
@@ -214,7 +259,7 @@ export default function (pi: ExtensionAPI): void {
 
 				applyCompletion(lines, cursorLine, cursorCol, item, prefix) {
 					// Our token accepted: remember the word so the editor glows it.
-					if (prefix.startsWith("?")) recordHighlight(item.value);
+					if (prefix.startsWith("?")) recordHighlight(pi, item.value);
 					// Replaces `?query` with the chosen word — placeholder disappears.
 					return current.applyCompletion(lines, cursorLine, cursorCol, item, prefix);
 				},
