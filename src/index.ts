@@ -304,4 +304,65 @@ export default function (pi: ExtensionAPI): void {
 		(factory as { __atWordsBase?: typeof base }).__atWordsBase = base;
 		ctx.ui.setEditorComponent(factory as never);
 	});
+
+	const AT_WORDS_DOCS: Record<string, string> = {
+		status: "zobrazí počet zaindexovaných souborů, slov v cache a zvýrazněných slov",
+		clear: "vymaže historii růžově svítících slov",
+		help: "zobrazí podrobnou nápovědu a použití @file a ?symbol autocomplete",
+	};
+
+	const showAtWordsHelp = (ctx: { ui: { notify: (msg: string, type: "info" | "warning" | "error") => void } }) => {
+		let totalCachedWords = 0;
+		for (const entry of wordCache.values()) {
+			totalCachedWords += entry.words.length;
+		}
+		ctx.ui.notify(
+			[
+				`pi-at-words — fuzzy doplňování slov/symbolů z připojených @souborů`,
+				"Našeptává identifikátory a symboly ze souborů zmíněných přes @, potvrzená slova svítí růžově (eldritch pink).",
+				"",
+				"Použití:",
+				"1. Připojte soubor v editoru: @src/index.ts",
+				"2. Napište otazník a prefix slova (min 2 znaky): ?myFunc",
+				"3. Vyberte z nabídky — slovo se vloží a v editoru i chatu svítí růžově",
+				"",
+				"Příkazy:",
+				"/at-words               — tato nápověda + stav cache",
+				"/at-words status        — zobrazí statistiky cache a zvýraznění",
+				"/at-words clear         — vymaže uložená růžová slova",
+				"",
+				`Stav: cache=${wordCache.size} souborů (${totalCachedWords} slov) | zvýrazněno=${highlightWords.size} slov`,
+			].join("\n"),
+			"info",
+		);
+	};
+
+	pi.registerCommand("at-words", {
+		description:
+			"pi-at-words: nápověda a správa doplňování symbolů ze souborů připojených přes @",
+		getArgumentCompletions: (prefix: string) => {
+			const tokens = prefix.split(/\s+/).filter(Boolean);
+			const typed = (tokens[0] ?? "").toLowerCase();
+			const items = Object.entries(AT_WORDS_DOCS)
+				.filter(([key]) => key.startsWith(typed))
+				.map(([value, description]) => ({ value, label: value, description }));
+			return items.length > 0 ? items : null;
+		},
+		handler: async (args, ctx) => {
+			const [sub] = args.trim().split(/\s+/).filter(Boolean);
+			if (!sub || sub === "help" || sub === "status") {
+				showAtWordsHelp(ctx);
+				return;
+			}
+			if (sub === "clear") {
+				highlightWords.clear();
+				highlightVersion++;
+				pi.appendEntry(WORDS_ENTRY_TYPE, { words: [] });
+				pi.events.emit("at-words:words-updated", { words: [] });
+				ctx.ui.notify("Zvýrazněná slova byla vymazána", "info");
+				return;
+			}
+			ctx.ui.notify("Neznámý příkaz. Použijte: /at-words [status|clear|help]", "warning");
+		},
+	});
 }
