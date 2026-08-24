@@ -130,9 +130,8 @@ export function styleText(text: string): string {
 		? `|(?<![A-Za-z0-9_])(?:${wordAlts})(?![A-Za-z0-9_])`
 		: "";
 	const re = new RegExp(`(?:${MENTION_SRC})${wordPart}`, "g");
-	return text.replace(
-		re,
-		(m) => (m.startsWith("@") ? `${GREEN}${m}${GREEN_OFF}` : `${PINK}${m}${PINK_OFF}`),
+	return text.replace(re, (m) =>
+		m.startsWith("@") ? `${GREEN}${m}${GREEN_OFF}` : `${PINK}${m}${PINK_OFF}`,
 	);
 }
 
@@ -306,12 +305,15 @@ export default function (pi: ExtensionAPI): void {
 	});
 
 	const AT_WORDS_DOCS: Record<string, string> = {
-		status: "zobrazí počet zaindexovaných souborů, slov v cache a zvýrazněných slov",
+		status:
+			"zobrazí počet zaindexovaných souborů, slov v cache a zvýrazněných slov",
 		clear: "vymaže historii růžově svítících slov",
 		help: "zobrazí podrobnou nápovědu a použití @file a ?symbol autocomplete",
 	};
 
-	const showAtWordsHelp = (ctx: { ui: { notify: (msg: string, type: "info" | "warning" | "error") => void } }) => {
+	const showAtWordsHelp = (ctx: {
+		ui: { notify: (msg: string, type: "info" | "warning" | "error") => void };
+	}) => {
 		let totalCachedWords = 0;
 		for (const entry of wordCache.values()) {
 			totalCachedWords += entry.words.length;
@@ -362,7 +364,10 @@ export default function (pi: ExtensionAPI): void {
 				ctx.ui.notify("Zvýrazněná slova byla vymazána", "info");
 				return;
 			}
-			ctx.ui.notify("Neznámý příkaz. Použijte: /at-words [status|clear|help]", "warning");
+			ctx.ui.notify(
+				"Neznámý příkaz. Použijte: /at-words [status|clear|help]",
+				"warning",
+			);
 		},
 	});
 }
