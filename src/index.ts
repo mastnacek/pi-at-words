@@ -41,7 +41,7 @@ type WordEntry = { word: string; count: number; file: string };
 
 const wordCache = new Map<string, { mtimeMs: number; words: WordEntry[] }>();
 
-function tokenize(text: string, file: string): Map<string, number> {
+function tokenize(text: string, _file?: string): Map<string, number> {
 	const counts = new Map<string, number>();
 	for (const m of text.matchAll(/[A-Za-z_][A-Za-z0-9_]{2,}/g)) {
 		const w = m[0];
@@ -344,9 +344,13 @@ export default function (pi: ExtensionAPI): void {
 			"pi-at-words: nápověda a správa doplňování symbolů ze souborů připojených přes @",
 		getArgumentCompletions: (prefix: string) => {
 			const tokens = prefix.split(/\s+/).filter(Boolean);
+			const trailingSpace = /\s$/.test(prefix);
+			if (tokens.length > 1 || (trailingSpace && tokens.length === 1)) {
+				return null;
+			}
 			const typed = (tokens[0] ?? "").toLowerCase();
 			const items = Object.entries(AT_WORDS_DOCS)
-				.filter(([key]) => key.startsWith(typed))
+				.filter(([key]) => key.toLowerCase().startsWith(typed))
 				.map(([value, description]) => ({ value, label: value, description }));
 			return items.length > 0 ? items : null;
 		},
