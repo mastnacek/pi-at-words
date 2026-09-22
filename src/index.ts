@@ -223,6 +223,10 @@ export default function (pi: ExtensionAPI): void {
 			pi.events.emit("at-words:words-updated", { words: [...highlightWords] });
 		}
 
+		// Autocomplete/editor integration requires a UI; bail before any ctx.ui.*
+		// call in a headless session (AGENTS.md §6).
+		if (!ctx.hasUI) return;
+
 		ctx.ui.addAutocompleteProvider(
 			(current: AutocompleteProvider): AutocompleteProvider => ({
 				triggerCharacters: ["?"],
