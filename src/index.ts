@@ -191,15 +191,23 @@ function toItems(words: WordEntry[], query: string): AutocompleteItem[] {
 }
 
 export default function (pi: ExtensionAPI): void {
+	/** Unsubscribers from every `pi.on()`; drained on session_shutdown (AGENTS §5). */
+	const unsubscribers: Array<() => void> = [];
+
+	/** Retain a `pi.on()` return value; older engine typings declare it void. */
+	const track = (result: unknown): void => {
+		if (typeof result === "function") unsubscribers.push(result as () => void);
+	};
+
 	// Safety net: strip `?` from unaccepted query tokens before they reach the model.
 	// Only when an @-mention is in the same message (plugin-usage heuristic), so prose
 	// questions ("is it? ok") and discussing the syntax itself stay intact.
 	const ORPHAN_QUERY_RE = /\B\?([A-Za-z0-9_]{2,})\b/g;
-	pi.on("input", (event) => {
+	track(pi.on("input", (event) => {
 		if (!event.text.includes("?") || !/@[\w."-]/.test(event.text)) return;
 		const text = event.text.replace(ORPHAN_QUERY_RE, "$1");
 		if (text !== event.text) return { action: "transform", text };
-	});
+	}));
 
 	// Pink recorded words + @-mentions in transcript user messages (translated
 	// messages included). Markdown transformers run for user text and restored
@@ -209,7 +217,7 @@ export default function (pi: ExtensionAPI): void {
 		return styleText(markdown);
 	});
 
-	pi.on("session_start", (_event, ctx) => {
+	track(pi.on("session_start", (_event, ctx) => {
 		// Restore persisted words (last entry wins) so highlights survive restarts.
 		for (const entry of ctx.sessionManager.getEntries()) {
 			if (entry.type === "custom" && entry.customType === WORDS_ENTRY_TYPE) {
@@ -311,7 +319,7 @@ export default function (pi: ExtensionAPI): void {
 		) => new EldritchEditor(tui, theme, keybindings);
 		(factory as { __atWordsBase?: typeof base }).__atWordsBase = base;
 		ctx.ui.setEditorComponent(factory as never);
-	});
+	}));
 
 	const AT_WORDS_DOCS: Record<string, string> = {
 		status:
@@ -383,5 +391,9 @@ export default function (pi: ExtensionAPI): void {
 				"warning",
 			);
 		},
+	});
+
+	pi.on("session_shutdown", () => {
+		while (unsubscribers.length > 0) unsubscribers.pop()?.();
 	});
 }
