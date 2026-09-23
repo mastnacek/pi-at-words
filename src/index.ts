@@ -130,8 +130,13 @@ export function styleText(text: string): string {
 		? `|(?<![A-Za-z0-9_])(?:${wordAlts})(?![A-Za-z0-9_])`
 		: "";
 	const re = new RegExp(`(?:${MENTION_SRC})${wordPart}`, "g");
+	// Note: \u200C (zero-width non-joiner) right before @ stops marked's email autolinker
+	// (/^[A-Za-z0-9._+-]+(@)/). Without it, marked treats SGR terminator "102m" from GREEN
+	// followed by "@filename.ext" as an email address ("102m@filename.ext") in user messages.
 	return text.replace(re, (m) =>
-		m.startsWith("@") ? `${GREEN}${m}${GREEN_OFF}` : `${PINK}${m}${PINK_OFF}`,
+		m.startsWith("@")
+			? `${GREEN}\u200C${m}${GREEN_OFF}`
+			: `${PINK}${m}${PINK_OFF}`,
 	);
 }
 
