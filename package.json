@@ -1,6 +1,7 @@
 {
 	"name": "pi-at-words",
 	"version": "0.2.1",
+	"type": "module",
 	"description": "Word/symbol autocomplete from @-attached files in the pi coding agent input editor, with pink highlighting of confirmed words.",
 	"license": "MIT",
 	"keywords": [
@@ -13,11 +14,18 @@
 	"files": [
 		"src",
 		"README.md",
-		"LICENSE"
+		"LICENSE",
+		"package.json"
 	],
+	"scripts": {
+		"test": "node --test test/**/*.test.js"
+	},
 	"peerDependencies": {
+		"@earendil-works/pi-agent-core": "*",
+		"@earendil-works/pi-ai": "*",
 		"@earendil-works/pi-coding-agent": "*",
-		"@earendil-works/pi-tui": "*"
+		"@earendil-works/pi-tui": "*",
+		"typebox": "*"
 	},
 	"pi": {
 		"extensions": ["./src/index.ts"]
